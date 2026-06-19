@@ -1,0 +1,195 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: email_service
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d email_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+
+  logto-postgres:
+    image: postgres:16
+    container_name: logto_postgres
+    profiles: ["tools"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: logto
+      POSTGRES_PASSWORD: logto
+      POSTGRES_DB: logto
+    volumes:
+      - logto_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logto -d logto"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  logto:
+    image: svhd/logto:latest
+    container_name: logto
+    profiles: ["tools"]
+    restart: unless-stopped
+    depends_on:
+      logto-postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: "postgres://logto:logto@logto-postgres:5432/logto"
+      ENDPOINT: "http://logto:3001"
+      ADMIN_ENDPOINT: "http://logto:3002"
+      PORT: 3001
+      ADMIN_PORT: 3002
+    ports:
+      - "3001:3001"
+      - "3002:3002"
+
+  mongo-express:
+    image: mongo-express
+    profiles: ["tools"]
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+      ME_CONFIG_MONGODB_SERVER: mongo
+    depends_on:
+      - mongo
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    profiles: ["tools"]
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      - redis
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    profiles: ["tools"]
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+    ports:
+      - "9200:9200"
+    mem_limit: 2g
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    profiles: ["tools"]
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      SES_PREFLIGHT_ENABLED: "false"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_BACKEND: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://myuser:mypassword@db:5432/email_service
+      SYNC_DATABASE_URL: postgresql+psycopg2://myuser:mypassword@db:5432/email_service
+      MONGO_URL: mongodb://mongo:27017/python_email_sender
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      FROM_EMAIL: test@example.com
+    depends_on:
+      db:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      SES_PREFLIGHT_ENABLED: "false"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+      CELERY_BACKEND: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://myuser:mypassword@db:5432/email_service
+      SYNC_DATABASE_URL: postgresql+psycopg2://myuser:mypassword@db:5432/email_service
+      MONGO_URL: mongodb://mongo:27017/python_email_sender
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      FROM_EMAIL: test@example.com
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    command: celery -A src.tasks.celery_app worker --loglevel=info --concurrency=4
+
+volumes:
+  postgres_data:
+  logto_postgres_data:

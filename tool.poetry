@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "python-email-sender"
+version = "0.1.0"
+description = "Email sender project"
+authors = ["Slava <nepejcevslava@gmail.com>"]
+readme = "README.md"
+packages = [
+    { include = "src" }
+]

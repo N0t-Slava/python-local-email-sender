@@ -1,0 +1,13 @@
+[Unit]
+Description=Cloudflare tunnel for python_email_sender links domain
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared tunnel --config /home/slava/.cloudflared/config.yml run email-sender
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-app-bg: #F7F5EE;
+  --color-app-surface: #FFFFFF;
+  --color-app-soft: #FFFDF7;
+  --color-app-panel: #F2EFE3;
+  --color-app-border: #DDD8C8;
+  --color-app-text: #241C15;
+  --color-app-muted: #6B6B6B;
+  --color-app-accent: #FFE01B;
+  --color-app-accent-hover: #F6D600;
+  --color-app-success: #007C5C;
+  --color-app-warning: #F6C343;
+  --color-app-error: #C62828;
+}
+
+@layer base {
+  :root {
+    font-family: var(--font-sans);
+    color: var(--color-app-text);
+    background: var(--color-app-bg);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    background: var(--color-app-bg);
+    color: var(--color-app-text);
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  a {
+    color: inherit;
+    font-weight: 800;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.68;
+  }
+
+  input,
+  textarea,
+  select {
+    outline: none;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-app-border bg-app-surface px-4 py-2.5 font-extrabold text-app-text transition hover:bg-app-panel disabled:text-app-muted;
+  }
+
+  .btn-primary {
+    @apply border-app-accent bg-app-accent hover:bg-app-accent-hover;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-app-border bg-app-surface px-3 py-3 text-app-text placeholder:text-app-muted focus:border-app-accent focus:ring-4 focus:ring-app-accent/25;
+  }
+
+  .panel {
+    @apply rounded-lg border border-app-border bg-app-surface;
+  }
+}
